@@ -8,6 +8,6 @@ router.get('/initiateAuth',initiateAuth)        //to initiate the connection and
 router.get('/capturecode',captureCode)
 router.post('/submit',formSubmission)
 
-router.get('/getPayload',getPayload)
+router.post('/getPayload',getPayload)
 
 export default router
