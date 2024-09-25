@@ -169,7 +169,7 @@ export async function fetchAuthTokenForLocation(locationId: string): Promise<str
           'SELECT ghl_oauth_token, ghl_refresh_token, ghl_oauth_token_expires_on FROM api_keys_data WHERE ghl_location_id = ?',
           [locationId]
       );
-
+      console.log(rows[0])
       if (rows.length === 0) {
           throw new Error(`No token found for locationId: ${locationId}`);
       }
@@ -213,7 +213,8 @@ export async function fetchAuthTokenForLocation(locationId: string): Promise<str
   } catch (error) {
       console.error('Error fetching or refreshing the token:', error);
       throw error;
-  } finally {
+  } 
+  finally {
       connection.release();  // Release the connection back to the pool
   }
 }
