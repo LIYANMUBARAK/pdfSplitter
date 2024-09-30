@@ -32,8 +32,13 @@ export async function getPayload(req: Request, res: Response) {
     const uploadedData:any=await uploadPdfToMedia(splitFileName,locationId)
     const fileId = uploadedData.fileId
     console.log(fileId)
+
+    const fileUrl =await getFileUrl(fileId,locationId)
+    console.log(fileUrl)
     const customFieldId = await getCustomFieldId(locationId) as string
-    await updateCustomField(locationId,contactId,fileId,customFieldId)
+    await updateCustomField(locationId,contactId,fileUrl,customFieldId)
+
+    await sendEmailWithAttachment(locationId,contactId,fileUrl)
 
     await deleteFiles(fileName,splitFileName)
 
@@ -217,6 +222,49 @@ const uploadPdfToMedia = async (pdfName:string,locationId:string)=>{
 };
 
 
+const getFileUrl = async (fileId:string, locationId:string) => {
+
+    const accessToken = await fetchAuthTokenForLocation(locationId);
+
+    const options = {
+      method: 'GET',
+      url: 'https://services.leadconnectorhq.com/medias/files',
+      params: { sortBy: 'createdAt', sortOrder: 'asc', altType: 'location' },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,  // Use the provided token
+        Accept: 'application/json',
+        Version: '2021-07-28'
+
+      }
+    };
+  
+    try {
+      const { data } = await axios.request(options);
+  
+      // Check if data contains files
+      if (data && data.files) {
+        const files = data.files;
+        // Find the file with the correct fileId
+        const file = files.find((f:any) => f._id === fileId);
+  
+        if (file) {
+          // Return the URL of the matched file
+          console.log('File URL:', file.url);
+          return file.url;
+        } else {
+          console.log(`File with fileId ${fileId} not found.`);
+          return null;
+        }
+      } else {
+        console.log('No files found in the response.');
+        return null;
+      }
+    } catch (error:any) {
+      console.error('Error fetching files:', error.response ? error.response.data : error.message);
+    }
+  };
+
+
 const  getCustomFieldId = async(locationId:string)=>{
     console.log("get custom field function")
     try {
@@ -254,7 +302,7 @@ const  getCustomFieldId = async(locationId:string)=>{
 
 
 
-const updateCustomField = async (locationId:string,contactId:string,fileId:string,customFieldId:string)=>{
+const updateCustomField = async (locationId:string,contactId:string,fileUrl:string,customFieldId:string)=>{
     console.log("updateCustomField function")
     try {
         
@@ -270,7 +318,7 @@ const updateCustomField = async (locationId:string,contactId:string,fileId:strin
         const data = {
             customFields: [{
                 "id":customFieldId,
-              "value": fileId // Assuming this is the key for the DTP field
+              "value": fileUrl // Assuming this is the key for the DTP field
             }]
           };
       
@@ -320,3 +368,162 @@ const deleteFiles = async (fileName: string, splitFileName: string) => {
     console.error('Error deleting files:', err);
   }
 };
+
+
+
+
+// Function to send email via GHL API with attachment
+const sendEmailWithAttachment = async (locationId: string, contactId: string, fileUrl: string) => {
+    try {
+        console.log("Sending email with attachment...");
+
+        // Fetch the access token for the location
+        const accessToken = await fetchAuthTokenForLocation(locationId);
+        // Prepare email data
+        const emailData = {
+            type:"Email",
+            emailTo: "qualitytesterteam@gmail.com",  // Test email, replace as needed
+            contactId: contactId,  // Dynamically set the contact ID
+            subject: "Test Email",
+            message:"The splitted pdf is attached below",
+            // templateId:"66faae46d616a186806dcef5",
+            attachments: [
+          fileUrl
+            ],
+        html:"test",
+        };
+
+        // Prepare the request options
+        const options = {
+            method: 'POST',
+            url: `https://services.leadconnectorhq.com/conversations/messages`, // Replace with actual GHL endpoint for sending emails
+            headers: {
+                Authorization: `Bearer ${accessToken}`,  // Access token for authentication
+                'Content-Type': 'application/json',  // Fixing the header formatting
+                Accept: 'application/json',
+                Version: '2021-07-28'
+            },
+            data: emailData
+        };
+
+        // Send email using axios
+        const response = await axios.post(options.url, options.data, { headers: options.headers });
+        console.log("Email sent successfully:", response);
+
+        return response.data;
+    } catch (error: any) {
+        console.error("Error sending email:", error.response ? error.response.data : error.message);
+        throw error;
+    }
+};
+
+
+export async function sendEmailWebhook(req:Request,res:Response){
+    console.log(req.body)
+    const fromName = req.body.fromName
+    const fromEmail = req.body.fromEmail
+    const toEmail = req.body.toEmail
+    const subject = req.body.subject
+    const pdfUrl = req.body.pdfUrl
+    const locationId = req.body.locationId
+    const emailBody = req.body.emailBody
+
+    const contactId = await getContactUsingEmail(toEmail,locationId)
+    try {
+          // Fetch the access token for the location
+          const accessToken = await fetchAuthTokenForLocation(locationId);
+          // Prepare email data
+          const emailData = {
+              type:"Email",
+              emailTo: toEmail,  // Test email, replace as needed
+              contactId: contactId,  // Dynamically set the contact ID
+              subject: subject,
+              message:"The splitted pdf is attached below",
+              emailFrom:fromEmail,
+              attachments: [
+            pdfUrl
+              ],
+          html:"test",
+          };
+  
+          // Prepare the request options
+          const options = {
+              method: 'POST',
+              url: `https://services.leadconnectorhq.com/conversations/messages`, // Replace with actual GHL endpoint for sending emails
+              headers: {
+                  Authorization: `Bearer ${accessToken}`,  // Access token for authentication
+                  'Content-Type': 'application/json',  // Fixing the header formatting
+                  Accept: 'application/json',
+                  Version: '2021-07-28'
+              },
+              data: emailData
+          };
+  
+          // Send email using axios
+          const response = await axios.post(options.url, options.data, { headers: options.headers });
+          console.log("Email sent successfully:", response);
+  
+          return response.data;
+    } catch (error) {
+        
+    }
+}
+
+const getContactUsingEmail = async(toEmail:string,locationId:string)=>{
+
+        const accessToken = await fetchAuthTokenForLocation(locationId);
+        
+        const options = {
+            method: 'GET',
+            url: 'https://services.leadconnectorhq.com/contacts/',
+            params: {locationId: locationId},
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Version: '2021-07-28',
+              Accept: 'application/json'
+            }
+          };
+          
+          try {
+            const { data } = await axios.request(options);
+            const contact = data.contact.find((contact:any) => contact.email.toLowerCase() === toEmail.toLowerCase());
+            if(contact){
+                return contact.id
+            }else{
+              return await createContactUsingMail(toEmail,locationId)
+            }
+          } catch (error) {
+            console.error("error finding contact using email : "+error);
+          }
+          
+}
+
+const createContactUsingMail=async (toEmail:string,locationId:string)=>{
+    try {
+        const accessToken = await fetchAuthTokenForLocation(locationId)
+
+        const options = {
+            method: 'POST',
+            url: 'https://services.leadconnectorhq.com/contacts/',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Version: '2021-07-28',
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            data: {
+             email: toEmail,
+            }
+          };
+          
+          try {
+            const { data } = await axios.request(options);
+            console.log(data);
+            return data.contact.id
+          } catch (error) {
+            console.error(error);
+          }
+    } catch (error) {
+        
+    }
+}
