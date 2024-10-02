@@ -389,6 +389,7 @@ export async function sendEmailWebhook(req:Request,res:Response){
     const propertyAddress = req.body.customData.propertyAddress as string | ""
     const first_name = req.body.first_name
     const last_name = req.body.last_name
+    const pdfUrl2= req.body.customData.pdfUrl2
     
     if (!toEmail || !subject || !pdfUrl || !locationId || !claim || !policy || !homeOwner || !first_name || !last_name) {
         return res.status(200).json({ message: "Incomplete information to send email" });
@@ -399,6 +400,12 @@ export async function sendEmailWebhook(req:Request,res:Response){
           // Fetch the access token for the location
           const accessToken = await fetchAuthTokenForLocation(locationId)
           // Prepare email data
+          const attachments = [pdfUrl];
+  if (pdfUrl2) {
+    attachments.push(pdfUrl2);  // Only attach pdfUrl2 if it exists
+  }
+
+
           const emailData = {
               type:"Email",
               emailTo: toEmail,  // Test email, replace as needed
@@ -406,9 +413,7 @@ export async function sendEmailWebhook(req:Request,res:Response){
               subject: subject,
               message:"The splitted pdf is attached below",
               emailCc:[ccEmail],
-              attachments: [
-            pdfUrl
-              ],
+              attachments: attachments,
               html: `
               <strong>Claim:</strong> ${claim}<br>
               <strong>Policy:</strong> ${policy}<br>
@@ -443,7 +448,7 @@ export async function sendEmailWebhook(req:Request,res:Response){
               },
               data: emailData
           };
-  
+          console.log("attachments : "+attachments)
           // Send email using axios
           try {
             const response = await axios.post(options.url, options.data, { headers: options.headers });
