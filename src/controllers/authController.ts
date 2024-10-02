@@ -200,7 +200,8 @@ export async function fetchAuthTokenForLocation(locationId: string): Promise<str
 
       const { data } = await axios.request(options);
       const newExpirationTime = currentTimestamp + data.expires_in;
-
+      console.log("Response for refreshing oauth token : "+ data)
+      console.log("newExpiration time  : "+ newExpirationTime)
       await connection.execute(
           'UPDATE api_keys_data SET ghl_oauth_token = ?, ghl_refresh_token = ?, ghl_oauth_token_expires_on = ? WHERE ghl_location_id = ?',
           [data.access_token, data.refresh_token, newExpirationTime, locationId]

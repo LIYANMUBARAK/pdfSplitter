@@ -4,9 +4,6 @@ import path from 'path'; // Use path for better path handling
 import { PDFDocument } from 'pdf-lib';
 import { Request, response, Response } from 'express';
 import axios, { AxiosRequestConfig } from 'axios';
-import { request as httpRequest } from 'http';
-import { request as httpsRequest } from 'https';
-import { writeFile } from 'fs';
 import FormData from 'form-data';
 import { fetchAuthTokenForLocation } from './authController';
 import { promisify } from 'util'; // Import promisify to convert callback-based functions into promises
@@ -27,18 +24,21 @@ export async function getPayload(req: Request, res: Response) {
     const fileName = `${req.body.first_name}${req.body.last_name}.pdf`
     await downloadPDF(url,fileName)
 
-    const splitFileName = await pdfProcess(fileName) as string// Await the async function
+    const splitFileName = await pdfProcess(fileName) as string
 
     const uploadedData:any=await uploadPdfToMedia(splitFileName,locationId)
+    
     const fileId = uploadedData.fileId
-    console.log(fileId)
+    
+    console.log("file Id : "+fileId)
 
     const fileUrl =await getFileUrl(fileId,locationId)
-    console.log(fileUrl)
+    
+    console.log("file url : "+fileUrl)
+    
     const customFieldId = await getCustomFieldId(locationId) as string
+    
     await updateCustomField(locationId,contactId,fileUrl,customFieldId)
-
-    await sendEmailWithAttachment(locationId,contactId,fileUrl)
 
     await deleteFiles(fileName,splitFileName)
 
@@ -372,66 +372,32 @@ const deleteFiles = async (fileName: string, splitFileName: string) => {
 
 
 
-// Function to send email via GHL API with attachment
-const sendEmailWithAttachment = async (locationId: string, contactId: string, fileUrl: string) => {
-    try {
-        console.log("Sending email with attachment...");
 
-        // Fetch the access token for the location
-        const accessToken = await fetchAuthTokenForLocation(locationId);
-        // Prepare email data
-        const emailData = {
-            type:"Email",
-            emailTo: "qualitytesterteam@gmail.com",  // Test email, replace as needed
-            contactId: contactId,  // Dynamically set the contact ID
-            subject: "Test Email",
-            message:"The splitted pdf is attached below",
-            // templateId:"66faae46d616a186806dcef5",
-            attachments: [
-          fileUrl
-            ],
-        html:"test",
-        };
-
-        // Prepare the request options
-        const options = {
-            method: 'POST',
-            url: `https://services.leadconnectorhq.com/conversations/messages`, // Replace with actual GHL endpoint for sending emails
-            headers: {
-                Authorization: `Bearer ${accessToken}`,  // Access token for authentication
-                'Content-Type': 'application/json',  // Fixing the header formatting
-                Accept: 'application/json',
-                Version: '2021-07-28'
-            },
-            data: emailData
-        };
-
-        // Send email using axios
-        const response = await axios.post(options.url, options.data, { headers: options.headers });
-        console.log("Email sent successfully:", response);
-
-        return response.data;
-    } catch (error: any) {
-        console.error("Error sending email:", error.response ? error.response.data : error.message);
-        throw error;
-    }
-};
 
 
 export async function sendEmailWebhook(req:Request,res:Response){
-    console.log(req.body)
-    const fromName = req.body.fromName
-    const fromEmail = req.body.fromEmail
-    const toEmail = req.body.toEmail
-    const subject = req.body.subject
-    const pdfUrl = req.body.pdfUrl
-    const locationId = req.body.locationId
-    const emailBody = req.body.emailBody
-
+    console.log('REQUEST BODY IN sendEmailWebhook function:', JSON.stringify(req.body, null, 2));
+    // const fromName = req.body.fromName
+    const ccEmail = req.body.customData.ccEmail as string | ""
+    const toEmail = req.body.customData.toEmail
+    const subject = req.body.customData.subject    
+    const pdfUrl = req.body.customData.pdfUrl
+    const locationId = req.body.location.id
+    const claim = req.body.customData.claim
+    const policy = req.body.customData.policy
+    const homeOwner = req.body.customData.homeOwner
+    const propertyAddress = req.body.customData.propertyAddress as string | ""
+    const first_name = req.body.first_name
+    const last_name = req.body.last_name
+    
+    if (!toEmail || !subject || !pdfUrl || !locationId || !claim || !policy || !homeOwner || !first_name || !last_name) {
+        return res.status(200).json({ message: "Incomplete information to send email" });
+      }
+  
     const contactId = await getContactUsingEmail(toEmail,locationId)
     try {
           // Fetch the access token for the location
-          const accessToken = await fetchAuthTokenForLocation(locationId);
+          const accessToken = await fetchAuthTokenForLocation(locationId)
           // Prepare email data
           const emailData = {
               type:"Email",
@@ -439,12 +405,31 @@ export async function sendEmailWebhook(req:Request,res:Response){
               contactId: contactId,  // Dynamically set the contact ID
               subject: subject,
               message:"The splitted pdf is attached below",
-              emailFrom:fromEmail,
+              emailCc:[ccEmail],
               attachments: [
             pdfUrl
               ],
-          html:"test",
-          };
+              html: `
+              <strong>Claim:</strong> ${claim}<br>
+              <strong>Policy:</strong> ${policy}<br>
+              <strong>Homeowner:</strong> ${homeOwner}<br>
+              <strong>Property Address:</strong> ${propertyAddress}<br>
+              
+              <p>To whom it may concern,<p>
+              
+              <p>Attached please find the Third Party/Direction to Pay and Contractor W-9 for our mutual customer,
+              ${first_name} ${last_name}.
+              <br>
+              <br>
+              Please feel free to contact us should you have any questions or require additional information.
+              <br>
+              <br>
+              Thank you for your time and attention to this matter!
+              <br>
+              <br>
+              Have a wonderful day.
+              <p>
+            `,  };
   
           // Prepare the request options
           const options = {
@@ -460,48 +445,70 @@ export async function sendEmailWebhook(req:Request,res:Response){
           };
   
           // Send email using axios
-          const response = await axios.post(options.url, options.data, { headers: options.headers });
-          console.log("Email sent successfully:", response);
-  
-          return response.data;
+          try {
+            const response = await axios.post(options.url, options.data, { headers: options.headers });
+            console.log("Email sent successfully:", response);
+            res.status(200).json({ message: "Email sent successfully." });
+            return response.data;
+          } catch (error) {
+            console.log("error sending email : "+error)
+          }
+         
     } catch (error) {
-        
+       console.log("error sending email function : "+error)
     }
 }
 
 const getContactUsingEmail = async(toEmail:string,locationId:string)=>{
-
+        console.log("toEmail : "+toEmail)
         const accessToken = await fetchAuthTokenForLocation(locationId);
         
-        const options = {
-            method: 'GET',
-            url: 'https://services.leadconnectorhq.com/contacts/',
-            params: {locationId: locationId},
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              Version: '2021-07-28',
-              Accept: 'application/json'
+        let nextPageUrl = `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}`; // Initial URL
+
+        do {
+            const options = {
+                method: 'GET',
+                url: nextPageUrl,
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Version: '2021-07-28',
+                    Accept: 'application/json'
+                }
+            };
+        
+            try {
+                const { data } = await axios.request(options);
+                
+                // Check if the contact exists in the current page
+                const contact = data.contacts.find((contact: any) => 
+                    contact.email && contact.email.toLowerCase() === toEmail.toLowerCase()
+                );                
+                if (contact) {
+                    console.log(contact)
+                    return contact.id; // Return the contact ID if found
+                }
+        
+                // Update nextPageUrl for the next iteration
+                nextPageUrl = data.meta.nextPageUrl;
+        
+                // Optional: Log the retrieved contacts count for debugging
+                console.log(`Checked page, retrieved ${data.contacts.length} contacts`);
+                
+            } catch (error) {
+                console.error("Error fetching contacts: " + error);
+                break; // Exit loop on error
             }
-          };
-          
-          try {
-            const { data } = await axios.request(options);
-            const contact = data.contact.find((contact:any) => contact.email.toLowerCase() === toEmail.toLowerCase());
-            if(contact){
-                return contact.id
-            }else{
-              return await createContactUsingMail(toEmail,locationId)
-            }
-          } catch (error) {
-            console.error("error finding contact using email : "+error);
-          }
+        } while (nextPageUrl);
+        
+        // If no contact was found after checking all pages
+        return await createContactUsingMail(toEmail, locationId);
           
 }
 
 const createContactUsingMail=async (toEmail:string,locationId:string)=>{
     try {
         const accessToken = await fetchAuthTokenForLocation(locationId)
-
+        console.log("reached createContact function.The to Email and location Id is : "+toEmail+""+locationId)
         const options = {
             method: 'POST',
             url: 'https://services.leadconnectorhq.com/contacts/',
@@ -513,6 +520,7 @@ const createContactUsingMail=async (toEmail:string,locationId:string)=>{
             },
             data: {
              email: toEmail,
+             locationId:locationId
             }
           };
           
@@ -524,6 +532,6 @@ const createContactUsingMail=async (toEmail:string,locationId:string)=>{
             console.error(error);
           }
     } catch (error) {
-        
+        console.log("creating contact using mail error : "+error)
     }
-}
+} 
