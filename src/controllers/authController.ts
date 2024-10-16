@@ -14,7 +14,7 @@ import 'dotenv/config';
 export async function initiateAuth(req: Request, res: Response) {
     try {
       const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=${process.env.REDIRECT_URL}&client_id=${process.env.CLIENT_ID}&scope=conversations.readonly conversations.write conversations/message.readonly conversations/message.write conversations/reports.readonly contacts.readonly contacts.write lc-email.readonly locations.readonly locations/customValues.readonly locations/customValues.write locations/customFields.readonly locations/customFields.write medias.readonly medias.write users.readonly`;
-      res.redirect(authUrl)  //get token from url params
+      res.redirect(authUrl)  
     } catch (error) {
       console.log("Auth initiation failed.Error:" + error)
     }

@@ -24,7 +24,7 @@ export async function getPayload(req: Request, res: Response) {
     const fileName = `${req.body.first_name}${req.body.last_name}.pdf`
     await downloadPDF(url,fileName)
 
-    const splitFileName = await pdfProcess(fileName) as string
+    const splitFileName = await pdfProcess(fileName,1) as string
 
     const uploadedData:any=await uploadPdfToMedia(splitFileName,locationId)
     
@@ -42,7 +42,33 @@ export async function getPayload(req: Request, res: Response) {
 
     await deleteFiles(fileName,splitFileName)
 
-    res.status(200).json({ message: "Second page extracted and saved successfully." });
+    //2nd Pdf procees starts
+
+    const secondPdfUrl = req.body.customData.pdf2
+    const secondPdfFileName = `${req.body.first_name}${req.body.last_name}Second.pdf`
+    await downloadPDF(secondPdfUrl,secondPdfFileName)
+
+    const secondSplitFileName = await pdfProcess(secondPdfFileName,0) as string
+
+    const SecondUploadedData:any = await uploadPdfToMedia(secondSplitFileName,locationId)
+
+    const secondFileId = SecondUploadedData.fileId
+
+    console.log("2nd file Id : "+secondFileId)
+
+    const secondFileUrl =await getFileUrl(secondFileId,locationId)
+
+    console.log("2nd file url : "+secondFileUrl)
+
+    const secondCustomFieldId = await getSecondCustomFieldId(locationId) as string
+    
+    await updateCustomField(locationId,contactId,secondFileUrl,secondCustomFieldId)
+
+    await deleteFiles(secondPdfFileName,secondSplitFileName)
+
+
+
+    res.status(200).json({ message: "Pages extracted and saved successfully." });
   } catch (error) {
     console.error("getPayload error: " + error);
     res.status(500).json({ error: "An error occurred while processing the PDF." });
@@ -133,7 +159,7 @@ async function downloadPDF(url: string,fileName:string) {
 
 
 // Asynchronous function to process the PDF
-const pdfProcess = async (fileName: string) => {
+const pdfProcess = async (fileName: string,page:number) => {
     console.log("Start Split Process");
     const fileNameWithoutExtension = fileName.replace(".pdf", "");
 
@@ -152,11 +178,11 @@ const pdfProcess = async (fileName: string) => {
   
       if (pagecount >= 2) {
         const newPdf = await PDFDocument.create();
-        const [secondPage] = await newPdf.copyPages(pdf, [1]);
+        const [secondPage] = await newPdf.copyPages(pdf, [page]);
         newPdf.addPage(secondPage);
         const newPdfBytes = await newPdf.save();
         fs.writeFileSync(outputFilePath, newPdfBytes);
-        console.log(`Second page saved as '${outputFilePath}'`);
+        console.log(` page saved as '${outputFilePath}'`);
         return splitFileName;
       } else {
         console.log("The PDF has fewer than 2 pages.");
@@ -265,6 +291,41 @@ const getFileUrl = async (fileId:string, locationId:string) => {
   };
 
 
+  const  getSecondCustomFieldId = async(locationId:string)=>{
+    console.log("get Second custom field function")
+    try {
+            
+        let customFieldId:string
+        const accessToken = await fetchAuthTokenForLocation(locationId)
+        const options = {
+            method: 'GET',
+            url: `https://services.leadconnectorhq.com/locations/${locationId}/customFields`,
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Version: '2021-07-28',
+              Accept: 'application/json'
+            }
+          };
+        
+          try {
+            const { data } = await axios.request(options);
+            const dtpField = data.customFields.find((field:any) => field.name === "COC Page Url");
+
+            if (dtpField) {
+              customFieldId = dtpField.id
+              return customFieldId
+            } else {
+              console.log("COK Custom Field not found.");
+            }
+
+    } catch (error) {
+        
+    }
+}catch(error){
+    console.log("error getting COK custom field : "+error)
+}
+  }
+
 const  getCustomFieldId = async(locationId:string)=>{
     console.log("get custom field function")
     try {
@@ -296,7 +357,7 @@ const  getCustomFieldId = async(locationId:string)=>{
         
     }
 }catch(error){
-    console.log("error getting custom field : "+error)
+    console.log("error getting DTP custom field : "+error)
 }
 }
 
@@ -462,6 +523,87 @@ export async function sendEmailWebhook(req:Request,res:Response){
     } catch (error) {
        console.log("error sending email function : "+error)
     }
+}
+
+export async function sendSecondPdfEmailWebhook(req:Request,res:Response){
+    console.log("send second pdf mail function req body : "+req.body)
+    const ccEmail = req.body.customData.ccEmail as string | ""
+    const toEmail = req.body.customData.toEmail
+    const subject = req.body.customData.subject    
+    const pdfUrl = req.body.customData.pdfUrl
+    const locationId = req.body.location.id
+    const claim = req.body.customData.claim
+    const first_name = req.body.first_name
+    const last_name = req.body.last_name
+   
+    if (!toEmail || !subject || !pdfUrl || !locationId || !claim || !first_name || !last_name) {
+      return res.status(200).json({ message: "Incomplete information to send email" });
+    }
+
+  const contactId = await getContactUsingEmail(toEmail,locationId)
+  try {
+        // Fetch the access token for the location
+        const accessToken = await fetchAuthTokenForLocation(locationId)
+        // Prepare email data
+        const attachments = [pdfUrl];
+
+
+
+        const emailData = {
+            type:"Email",
+            emailTo: toEmail,  // Test email, replace as needed
+            contactId: contactId,  // Dynamically set the contact ID
+            subject: subject,
+            message:"The splitted pdf is attached below",
+            emailCc:[ccEmail],
+            attachments: attachments,
+            html: `
+            <strong>Claim:</strong> ${claim}<br>
+
+            <p>To whom it may concern,<p>
+            
+            <p>Attached please find the Third Party/Direction to Pay and Contractor W-9 for our mutual customer,
+            ${first_name} ${last_name}.
+            <br>
+            <br>
+            Please feel free to contact us should you have any questions or require additional information.
+            <br>
+            <br>
+            Thank you for your time and attention to this matter!
+            <br>
+            <br>
+            Have a wonderful day.
+            <p>
+          `,  };
+
+        // Prepare the request options
+        const options = {
+            method: 'POST',
+            url: `https://services.leadconnectorhq.com/conversations/messages`, // Replace with actual GHL endpoint for sending emails
+            headers: {
+                Authorization: `Bearer ${accessToken}`,  // Access token for authentication
+                'Content-Type': 'application/json',  // Fixing the header formatting
+                Accept: 'application/json',
+                Version: '2021-07-28'
+            },
+            data: emailData
+        };
+        console.log("attachments : "+attachments)
+        // Send email using axios
+        try {
+          const response = await axios.post(options.url, options.data, { headers: options.headers });
+          console.log("Email sent successfully:", response);
+          res.status(200).json({ message: "Email sent successfully." });
+          return response.data;
+        } catch (error) {
+          console.log("error sending email : "+error)
+        }
+       
+  } catch (error) {
+     console.log("error sending email function : "+error)
+  }
+
+
 }
 
 const getContactUsingEmail = async(toEmail:string,locationId:string)=>{
