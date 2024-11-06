@@ -71,7 +71,7 @@ export async function getPayload(req: Request, res: Response) {
     res.status(200).json({ message: "Pages extracted and saved successfully." });
   } catch (error) {
     console.error("getPayload error: " + error);
-    res.status(500).json({ error: "An error occurred while processing the PDF." });
+    res.status(200).json({ error: "An error occurred while processing the PDF." });
   }
 }
 
