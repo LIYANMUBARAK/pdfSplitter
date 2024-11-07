@@ -44,29 +44,31 @@ export async function getPayload(req: Request, res: Response) {
 
     //2nd Pdf procees starts
 
-    const secondPdfUrl = req.body.customData.pdf2
-    const secondPdfFileName = `${req.body.first_name}${req.body.last_name}Second.pdf`
-    await downloadPDF(secondPdfUrl,secondPdfFileName)
+    if(req.body.customData.pdf2){
 
-    const secondSplitFileName = await pdfProcess(secondPdfFileName,0) as string
+      const secondPdfUrl = req.body.customData.pdf2
+      const secondPdfFileName = `${req.body.first_name}${req.body.last_name}Second.pdf`
+      await downloadPDF(secondPdfUrl,secondPdfFileName)
+  
+      const secondSplitFileName = await pdfProcess(secondPdfFileName,0) as string
+  
+      const SecondUploadedData:any = await uploadPdfToMedia(secondSplitFileName,locationId)
+  
+      const secondFileId = SecondUploadedData.fileId
+  
+      console.log("2nd file Id : "+secondFileId)
+  
+      const secondFileUrl =await getFileUrl(secondFileId,locationId)
+  
+      console.log("2nd file url : "+secondFileUrl)
+  
+      const secondCustomFieldId = await getSecondCustomFieldId(locationId) as string
+      
+      await updateCustomField(locationId,contactId,secondFileUrl,secondCustomFieldId)
+  
+      await deleteFiles(secondPdfFileName,secondSplitFileName)
 
-    const SecondUploadedData:any = await uploadPdfToMedia(secondSplitFileName,locationId)
-
-    const secondFileId = SecondUploadedData.fileId
-
-    console.log("2nd file Id : "+secondFileId)
-
-    const secondFileUrl =await getFileUrl(secondFileId,locationId)
-
-    console.log("2nd file url : "+secondFileUrl)
-
-    const secondCustomFieldId = await getSecondCustomFieldId(locationId) as string
-    
-    await updateCustomField(locationId,contactId,secondFileUrl,secondCustomFieldId)
-
-    await deleteFiles(secondPdfFileName,secondSplitFileName)
-
-
+    }
 
     res.status(200).json({ message: "Pages extracted and saved successfully." });
   } catch (error) {
