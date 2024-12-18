@@ -462,13 +462,13 @@ export async function sendEmailWebhook(req:Request,res:Response){
       if(!toEmail){
         const tag = "claims_email_not_found(webhook)"
         await createTagsForContact(tag_contact_id, tag, locationId)
-       missingFields.push("To Email")
+       missingFields.push("claims_email_not_found(webhook)")
       }
   
       if(!subject){
         const tag = "claim_number_not_found(webhook)"
         await createTagsForContact(tag_contact_id, tag, locationId )
-        missingFields.push("Subject")
+        missingFields.push("claim_number_not_found(webhook)")
       }
   
       if(!pdfUrl){
@@ -486,13 +486,13 @@ export async function sendEmailWebhook(req:Request,res:Response){
       if(!claim){
         const tag = "claim_number_not_found(webhook)"
         await createTagsForContact(tag_contact_id, tag, locationId )
-        missingFields.push("Claim")
+        missingFields.push("claim_number_not_found(webhook)")
       }
       
         if(!policy){
         const tag = "policy_number_not_found(webhook)"
         await createTagsForContact(tag_contact_id, tag, locationId )
-        missingFields.push("Policy")
+        missingFields.push("policy_number_not_found(webhook)")
       }
   
       if(!homeOwner){
