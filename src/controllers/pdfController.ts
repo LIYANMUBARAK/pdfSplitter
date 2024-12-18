@@ -453,10 +453,72 @@ export async function sendEmailWebhook(req:Request,res:Response){
     const first_name = req.body.first_name
     const last_name = req.body.last_name
     const pdfUrl2= req.body.customData.pdfUrl2
+    const tag_contact_id = req.body.customData.contact_id
     
     if (!toEmail || !subject || !pdfUrl || !locationId || !claim || !policy || !homeOwner || !first_name || !last_name) {
-        return res.status(200).json({ message: "Incomplete information to send email" });
+      
+      const missingFields = []
+
+      if(!toEmail){
+        const tag = "toEmail_not_found"
+        await createTagsForContact(tag_contact_id, tag, locationId)
+       missingFields.push("To Email")
       }
+  
+      if(!subject){
+        const tag = "subject_not_found"
+        await createTagsForContact(tag_contact_id, tag, locationId )
+        missingFields.push("Subject")
+      }
+  
+      if(!pdfUrl){
+        const tag = "pdfUrl_not_found"
+        await createTagsForContact(tag_contact_id, tag, locationId )
+        missingFields.push("Pdf Url")
+      }
+  
+      if(!locationId){
+        const tag = "locationId_not_found"
+        await createTagsForContact(tag_contact_id, tag, locationId )
+        missingFields.push("Location Id")
+      }
+  
+      if(!claim){
+        const tag = "claim_not_found"
+        await createTagsForContact(tag_contact_id, tag, locationId )
+        missingFields.push("Claim")
+      }
+      
+        if(!policy){
+        const tag = "policy_not_found"
+        await createTagsForContact(tag_contact_id, tag, locationId )
+        missingFields.push("Policy")
+      }
+  
+      if(!homeOwner){
+        const tag = "homeOwner_not_found"
+        await createTagsForContact(tag_contact_id, tag, locationId )
+        missingFields.push("Home Owner")
+      }
+  
+      if(!first_name){
+        const tag = "first_name_not_found"
+        await createTagsForContact(tag_contact_id, tag, locationId )
+        missingFields.push("First Name")
+      }
+  
+      if(!last_name){
+        const tag = "last_name_not_found"
+        await createTagsForContact(tag_contact_id, tag, locationId )
+        missingFields.push("Last Name")
+      } 
+      return res.status(200).json({ message:` ${missingFields} are not found` });
+      }
+    
+  
+ 
+    
+    
   
     const contactId = await getContactUsingEmail(toEmail,locationId)
     try {
@@ -471,8 +533,8 @@ export async function sendEmailWebhook(req:Request,res:Response){
 
           const emailData = {
               type:"Email",
-              emailTo: toEmail,  // Test email, replace as needed
-              contactId: contactId,  // Dynamically set the contact ID
+              emailTo: toEmail,  
+              contactId: contactId, 
               subject: subject,
               message:"The splitted pdf is attached below",
               emailCc:[ccEmail],
@@ -527,6 +589,34 @@ export async function sendEmailWebhook(req:Request,res:Response){
     }
 }
 
+const createTagsForContact = async( contactId : string, tag : string, locationId : string)=>{
+  const accessToken = await fetchAuthTokenForLocation(locationId)
+  // const tagToUpdate = []
+  // tagToUpdate.push(tag)
+  const options = {
+    method: 'POST',
+    url: `https://services.leadconnectorhq.com/contacts/${contactId}/tags`, 
+    headers: {
+        Authorization: `Bearer ${accessToken}`,  // Access token for authentication
+        'Content-Type': 'application/json',  // Fixing the header formatting
+        Accept: 'application/json',
+        Version: '2021-07-28'
+    },
+    data:{tags: [tag]} 
+
+    
+};
+
+try {
+  const response = await axios.post(options.url, options.data, { headers: options.headers });
+  console.log("tag added successfully:", response.data);
+  
+  return response.data;
+} catch (error) {
+  console.log("error sending email : "+error)
+}
+
+}
 export async function sendSecondPdfEmailWebhook(req:Request,res:Response){
     console.log("send second pdf mail function req body : "+req.body)
     const ccEmail = req.body.customData.ccEmail as string | ""

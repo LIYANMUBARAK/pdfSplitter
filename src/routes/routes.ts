@@ -9,7 +9,7 @@ router.get('/capturecode',captureCode)
 router.post('/submit',formSubmission)
 
 router.post('/getPayload',getPayload)
-router.post('/sendMailUsingWebhook',sendEmailWebhook)
+router.post('/sendMailUsingWebhook',sendEmailWebhook) // to change
 router.post('/sendSecondPdfMailUsingWebhook',sendSecondPdfEmailWebhook)
 
 export default router
