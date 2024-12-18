@@ -460,56 +460,56 @@ export async function sendEmailWebhook(req:Request,res:Response){
       const missingFields = []
 
       if(!toEmail){
-        const tag = "toEmail_not_found"
+        const tag = "claims_email_not_found(webhook)"
         await createTagsForContact(tag_contact_id, tag, locationId)
        missingFields.push("To Email")
       }
   
       if(!subject){
-        const tag = "subject_not_found"
+        const tag = "claim_number_not_found(webhook)"
         await createTagsForContact(tag_contact_id, tag, locationId )
         missingFields.push("Subject")
       }
   
       if(!pdfUrl){
-        const tag = "pdfUrl_not_found"
-        await createTagsForContact(tag_contact_id, tag, locationId )
+        // const tag = "dtp_second_page_url_not_found(webhook)"
+        // await createTagsForContact(tag_contact_id, tag, locationId )
         missingFields.push("Pdf Url")
       }
   
       if(!locationId){
-        const tag = "locationId_not_found"
-        await createTagsForContact(tag_contact_id, tag, locationId )
+        // const tag = "locationId_not_found"
+        // await createTagsForContact(tag_contact_id, tag, locationId )
         missingFields.push("Location Id")
       }
   
       if(!claim){
-        const tag = "claim_not_found"
+        const tag = "claim_number_not_found(webhook)"
         await createTagsForContact(tag_contact_id, tag, locationId )
         missingFields.push("Claim")
       }
       
         if(!policy){
-        const tag = "policy_not_found"
+        const tag = "policy_number_not_found(webhook)"
         await createTagsForContact(tag_contact_id, tag, locationId )
         missingFields.push("Policy")
       }
   
       if(!homeOwner){
-        const tag = "homeOwner_not_found"
-        await createTagsForContact(tag_contact_id, tag, locationId )
+        // const tag = "name_not_found(webhook)"
+        // await createTagsForContact(tag_contact_id, tag, locationId )
         missingFields.push("Home Owner")
       }
   
       if(!first_name){
-        const tag = "first_name_not_found"
-        await createTagsForContact(tag_contact_id, tag, locationId )
+        // const tag = "first_name_not_found"
+        // await createTagsForContact(tag_contact_id, tag, locationId )
         missingFields.push("First Name")
       }
   
       if(!last_name){
-        const tag = "last_name_not_found"
-        await createTagsForContact(tag_contact_id, tag, locationId )
+        // const tag = "last_name_not_found"
+        // await createTagsForContact(tag_contact_id, tag, locationId )
         missingFields.push("Last Name")
       } 
       return res.status(200).json({ message:` ${missingFields} are not found` });
