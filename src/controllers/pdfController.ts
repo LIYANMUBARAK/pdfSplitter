@@ -489,13 +489,13 @@ export async function sendEmailWebhook(req:Request,res:Response){
         missingFields.push("claim_number_not_found(webhook)")
       }
       
-        if(!policy||policy.length==0){
+        if(!policy || policy.trim().length === 0) {
         // const tag = "policy_number_not_found(webhook)"
         // await createTagsForContact(tag_contact_id, tag, locationId )
         // missingFields.push("policy_number_not_found(webhook)")
         policy = "No policy"
       }
-  
+       
       if(!homeOwner){
         // const tag = "name_not_found(webhook)"
         // await createTagsForContact(tag_contact_id, tag, locationId )
