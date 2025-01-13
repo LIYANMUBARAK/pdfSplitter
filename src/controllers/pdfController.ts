@@ -455,7 +455,7 @@ export async function sendEmailWebhook(req:Request,res:Response){
     const pdfUrl2= req.body.customData.pdfUrl2
     const tag_contact_id = req.body.customData.contact_id
     
-    if (!toEmail || !subject || !pdfUrl || !locationId || !claim || !policy || !homeOwner || !first_name || !last_name) {
+    if (!toEmail || !subject || !pdfUrl || !locationId || !claim  || !homeOwner || !first_name || !last_name) {
       
       const missingFields = []
 
@@ -493,7 +493,7 @@ export async function sendEmailWebhook(req:Request,res:Response){
         // const tag = "policy_number_not_found(webhook)"
         // await createTagsForContact(tag_contact_id, tag, locationId )
         // missingFields.push("policy_number_not_found(webhook)")
-        policy = "No Policy"
+        policy = "No policy"
       }
   
       if(!homeOwner){
