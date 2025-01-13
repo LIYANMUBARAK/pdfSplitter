@@ -447,7 +447,7 @@ export async function sendEmailWebhook(req:Request,res:Response){
     const pdfUrl = req.body.customData.pdfUrl
     const locationId = req.body.location.id
     const claim = req.body.customData.claim
-    const policy = req.body.customData.policy
+    let policy = req.body.customData.policy
     const homeOwner = req.body.customData.homeOwner
     const propertyAddress = req.body.customData.propertyAddress as string | ""
     const first_name = req.body.first_name
@@ -490,9 +490,10 @@ export async function sendEmailWebhook(req:Request,res:Response){
       }
       
         if(!policy){
-        const tag = "policy_number_not_found(webhook)"
-        await createTagsForContact(tag_contact_id, tag, locationId )
-        missingFields.push("policy_number_not_found(webhook)")
+        // const tag = "policy_number_not_found(webhook)"
+        // await createTagsForContact(tag_contact_id, tag, locationId )
+        // missingFields.push("policy_number_not_found(webhook)")
+        policy = "No Policy"
       }
   
       if(!homeOwner){
